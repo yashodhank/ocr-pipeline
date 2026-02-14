@@ -45,8 +45,24 @@ jobs:
         if: steps.release.outputs.released == 'true'
         run: python -m build
 
-      - name: Publish to PyPI
+      # To enable PyPI publishing, either:
+      # 1. Configure a trusted publisher on PyPI for this repo/workflow, or
+      # 2. Add a PYPI_API_TOKEN secret in repo settings
+      - name: Check PyPI token
         if: steps.release.outputs.released == 'true'
+        id: pypi_check
+        run: |
+          if [ -n "$PYPI_TOKEN" ]; then
+            echo "has_token=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_token=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Skipping PyPI publish — PYPI_API_TOKEN secret is not set"
+          fi
+        env:
+          PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+
+      - name: Publish to PyPI
+        if: steps.release.outputs.released == 'true' && steps.pypi_check.outputs.has_token == 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
