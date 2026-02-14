@@ -1,6 +1,23 @@
 # CHANGELOG
 
 
+## v0.1.1 (2026-02-14)
+
+### Bug Fixes
+
+- **ci**: Skip PyPI publish when PYPI_API_TOKEN is not configured
+  ([`e932377`](https://github.com/yashodhank/ocr-pipeline/commit/e932377d4b7b0e97dae9efb87f1b6ec593402650))
+
+Root cause: pypa/gh-action-pypi-publish attempts OIDC trusted publishing first, which fails when no
+  trusted publisher is configured on PyPI. The action doesn't fall back to token auth — it errors
+  out entirely.
+
+Fix: check for PYPI_API_TOKEN secret before attempting publish, emit a warning annotation instead of
+  failing the workflow.
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+
+
 ## v0.1.0 (2026-02-14)
 
 ### Bug Fixes
