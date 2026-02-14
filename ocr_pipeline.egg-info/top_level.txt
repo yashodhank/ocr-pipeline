@@ -1,3 +1,0 @@
-ocr_cli
-ocr_engine
-ocr_mcp_server
