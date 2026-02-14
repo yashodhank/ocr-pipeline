@@ -1,0 +1,12 @@
+README.md
+ocr_cli.py
+ocr_engine.py
+ocr_mcp_server.py
+pyproject.toml
+ocr_pipeline.egg-info/PKG-INFO
+ocr_pipeline.egg-info/SOURCES.txt
+ocr_pipeline.egg-info/dependency_links.txt
+ocr_pipeline.egg-info/entry_points.txt
+ocr_pipeline.egg-info/requires.txt
+ocr_pipeline.egg-info/top_level.txt
+tests/test_engine.py

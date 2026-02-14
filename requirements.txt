@@ -1,0 +1,9 @@
+pillow>=10.0
+pytesseract>=0.3.10
+pdf2image>=1.16
+ollama>=0.4.0
+httpx>=0.25.0
+numpy>=1.24
+rich>=13.0
+fastmcp>=2.0
+tqdm>=4.65

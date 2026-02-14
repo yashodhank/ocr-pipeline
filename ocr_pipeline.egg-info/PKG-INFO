@@ -1,0 +1,510 @@
+Metadata-Version: 2.4
+Name: ocr-pipeline
+Version: 0.1.0
+Summary: Multilingual OCR pipeline with Ollama vision LLMs and PyTesseract, auto-fallback, and confidence scoring
+Author-email: Yashodhank <yashodhank@users.noreply.github.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/yashodhank/ocr-pipeline
+Project-URL: Repository, https://github.com/yashodhank/ocr-pipeline
+Project-URL: Issues, https://github.com/yashodhank/ocr-pipeline/issues
+Keywords: ocr,tesseract,ollama,pdf,multilingual,devanagari,hindi,marathi
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering :: Image Recognition
+Classifier: Topic :: Text Processing :: General
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: pillow>=10.0
+Requires-Dist: pytesseract>=0.3.10
+Requires-Dist: pdf2image>=1.16
+Requires-Dist: ollama>=0.4.0
+Requires-Dist: httpx>=0.25.0
+Requires-Dist: numpy>=1.24
+Requires-Dist: rich>=13.0
+Requires-Dist: fastmcp>=2.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21; extra == "dev"
+
+# OCR Pipeline
+
+[![CI](https://github.com/yashodhank/ocr-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/yashodhank/ocr-pipeline/actions/workflows/ci.yml)
+[![PyPI version](https://badge.fury.io/py/ocr-pipeline.svg)](https://pypi.org/project/ocr-pipeline/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://python.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+Multilingual OCR pipeline with automatic backend selection, parallel processing, and confidence scoring.
+
+**Key features:**
+
+- **Dual backend** — Ollama vision LLMs (high accuracy) + PyTesseract (fast, offline)
+- **Auto-fallback** — Ollama failures automatically retry with reduced resolution, then fall back to PyTesseract
+- **Multilingual** — English, Hindi (हिन्दी), Marathi (मराठी) with native Devanagari preservation
+- **Parallel processing** — Async semaphore for Ollama, ProcessPoolExecutor for PyTesseract
+- **Rich CLI** — Progress bars, config panels, results tables
+- **MCP Server** — Expose OCR as tools for Claude Desktop and other MCP clients
+- **Confidence scoring** — Per-page confidence via PyTesseract `image_to_data` + heuristic scoring
+
+## Architecture
+
+```mermaid
+graph TB
+    CLI["ocr_cli.py<br/>Rich CLI"] --> Engine["ocr_engine.py<br/>Core Library"]
+    MCP["ocr_mcp_server.py<br/>MCP Server"] --> Engine
+    Engine --> Ollama["Ollama API<br/>Vision LLMs"]
+    Engine --> Tess["PyTesseract<br/>Tesseract OCR"]
+    Engine --> PDF["pdf2image<br/>PDF → Images"]
+```
+
+| File | Role |
+|---|---|
+| `ocr_engine.py` | Core library — async OCR, preprocessing, confidence scoring, output |
+| `ocr_cli.py` | Rich terminal UI — progress bars, config panels, results tables |
+| `ocr_mcp_server.py` | FastMCP server — expose OCR as tools via HTTP or stdio |
+
+## Quick Start
+
+```bash
+# Install system dependencies (macOS example)
+brew install tesseract poppler
+
+# Install the package
+pip install ocr-pipeline
+
+# OCR a PDF
+ocr-pipeline document.pdf
+```
+
+## Installation
+
+### System Dependencies
+
+OCR Pipeline requires **Tesseract** (for PyTesseract) and **Poppler** (for PDF support).
+
+<details>
+<summary><strong>macOS (Homebrew)</strong></summary>
+
+```bash
+brew install tesseract poppler
+
+# For Hindi/Marathi support, install tessdata
+brew install tesseract-lang
+```
+</details>
+
+<details>
+<summary><strong>Ubuntu / Debian</strong></summary>
+
+```bash
+sudo apt-get update
+sudo apt-get install -y tesseract-ocr poppler-utils
+
+# For Hindi/Marathi support
+sudo apt-get install -y tesseract-ocr-hin tesseract-ocr-mar
+```
+</details>
+
+<details>
+<summary><strong>Windows</strong></summary>
+
+1. **Tesseract**: Download installer from [UB Mannheim](https://github.com/UB-Mannheim/tesseract/wiki). Add to PATH.
+2. **Poppler**: Download from [poppler releases](https://github.com/oschwartz10612/poppler-windows/releases). Add `bin/` to PATH.
+3. For Hindi/Marathi, download `hin.traineddata` and `mar.traineddata` from [tessdata](https://github.com/tesseract-ocr/tessdata) into Tesseract's `tessdata` directory.
+
+```powershell
+# Or via Chocolatey
+choco install tesseract poppler
+```
+</details>
+
+### Python Package
+
+```bash
+pip install ocr-pipeline
+```
+
+### From Source
+
+```bash
+git clone https://github.com/yashodhank/ocr-pipeline.git
+cd ocr-pipeline
+pip install -e ".[dev]"
+```
+
+### Verify Installation
+
+```bash
+ocr-pipeline --help
+```
+
+### Ollama (Optional)
+
+For high-accuracy OCR with vision LLMs:
+
+```bash
+# Install Ollama: https://ollama.com
+ollama pull qwen2.5-vl   # Recommended for multilingual/Devanagari
+```
+
+## Usage
+
+### CLI Examples
+
+**Single PDF (English)** — office document digitization:
+```bash
+ocr-pipeline document.pdf
+```
+
+**Single image (JPG/PNG)** — photo of a document:
+```bash
+ocr-pipeline photo.jpg
+```
+
+**Hindi document** — government form in Devanagari:
+```bash
+ocr-pipeline form.pdf --lang hin
+```
+
+**Marathi document** — regional language support:
+```bash
+ocr-pipeline document.pdf --lang mar
+```
+
+**Mixed language (eng+hin+mar)** — multilingual invoice:
+```bash
+ocr-pipeline invoice.pdf --lang eng+hin+mar
+```
+
+**Batch processing directory** — archive digitization:
+```bash
+ocr-pipeline ./scans/ --output-dir ./results/
+```
+
+**Recursive directory scan** — nested folder structures:
+```bash
+ocr-pipeline ./archive/ --recursive --workers 4
+```
+
+**Force PyTesseract backend** — offline/fast processing:
+```bash
+ocr-pipeline document.pdf --backend pytesseract
+```
+
+**Force Ollama with specific model** — high-accuracy mode:
+```bash
+ocr-pipeline document.pdf --backend ollama --model qwen2.5-vl
+```
+
+**Custom output format** — integration with other tools:
+```bash
+ocr-pipeline document.pdf --format txt --output-dir ./text/
+ocr-pipeline document.pdf --format md --output-dir ./markdown/
+ocr-pipeline document.pdf --format json --indent
+```
+
+**Quiet mode** — scripting/piping:
+```bash
+ocr-pipeline document.pdf --quiet --format txt
+```
+
+**Debug mode** — save preprocessed images:
+```bash
+ocr-pipeline document.pdf --save-debug-img
+```
+
+### MCP Server
+
+Start the MCP server for use with Claude Desktop or other MCP clients.
+
+**Streamable HTTP (default):**
+```bash
+python ocr_mcp_server.py
+# Server starts at http://0.0.0.0:8000
+```
+
+**stdio transport (for Claude Desktop):**
+```bash
+python ocr_mcp_server.py --stdio
+```
+
+**Claude Desktop configuration** (`claude_desktop_config.json`):
+```json
+{
+  "mcpServers": {
+    "ocr-pipeline": {
+      "command": "python",
+      "args": ["/path/to/ocr_mcp_server.py", "--stdio"]
+    }
+  }
+}
+```
+
+**Available MCP tools:**
+
+| Tool | Description |
+|---|---|
+| `ocr_single_file` | OCR one file (PDF/image) with language and backend options |
+| `ocr_batch_files` | OCR multiple files/directories in batch |
+| `list_ocr_models` | List available Ollama vision/OCR models |
+| `get_ocr_status` | System status — backend availability, tessdata languages |
+
+### Python API
+
+```python
+import asyncio
+from pathlib import Path
+from ocr_engine import OCRConfig, ocr_file, ocr_batch
+
+# Single file
+async def main():
+    config = OCRConfig(languages=["eng", "hin"], backend="auto")
+    result = await ocr_file(Path("document.pdf"), config)
+    print(result.text)
+    print(f"Status: {result.status}, Confidence: {result.pages[0].confidence:.1f}%")
+
+asyncio.run(main())
+```
+
+```python
+# Batch processing
+async def batch():
+    config = OCRConfig(backend="pytesseract", workers=4)
+    batch = await ocr_batch(["./scans/"], config, recursive=True)
+    for r in batch.results:
+        print(f"{r.input_path}: {r.status}")
+
+asyncio.run(batch())
+```
+
+## OCR Processing Workflow
+
+```mermaid
+flowchart LR
+    Input["PDF / Image"] --> Load["Load &<br/>Split Pages"]
+    Load --> Pre["Preprocess<br/>Resize + Grayscale"]
+    Pre --> Backend{"Backend?"}
+    Backend -->|Ollama| OL["Async Ollama OCR"]
+    Backend -->|PyTesseract| PT["PyTesseract OCR"]
+    Backend -->|Auto| OL
+    OL -->|Fail| Retry["Retry with<br/>smaller max_dim"]
+    Retry -->|"Max retries exceeded"| PT
+    OL -->|Success| Post["Post-process"]
+    PT --> Post
+    Post --> Conf["Confidence Score"]
+    Conf --> Output["JSON / TXT / MD"]
+```
+
+## Supported Formats
+
+| Format | Extensions |
+|---|---|
+| PDF | `.pdf` |
+| JPEG | `.jpg`, `.jpeg` |
+| PNG | `.png` |
+| TIFF | `.tiff`, `.tif` |
+| BMP | `.bmp` |
+| WebP | `.webp` |
+
+## Language Support
+
+| Code | Language | Script | Notes |
+|---|---|---|---|
+| `eng` | English | Latin | Default |
+| `hin` | Hindi (हिन्दी) | Devanagari | Requires `tesseract-ocr-hin` tessdata |
+| `mar` | Marathi (मराठी) | Devanagari | Requires `tesseract-ocr-mar` tessdata |
+
+- Devanagari text is preserved in original script — **no transliteration** to Latin
+- Combine languages with `+`: `--lang eng+hin+mar`
+- Ollama models with strong Devanagari support: `qwen2.5-vl`, `qwen3-vl`, `llava`, `glm-ocr`
+
+## Backend Comparison
+
+| Feature | Ollama (Vision LLMs) | PyTesseract |
+|---|---|---|
+| Accuracy | High (context-aware) | Good (traditional OCR) |
+| Speed | Slower (API calls) | Fast (local binary) |
+| Offline | Requires Ollama running | Fully offline |
+| Devanagari | Excellent with qwen2.5-vl | Good with tessdata |
+| Setup | `ollama pull <model>` | System package |
+| GPU | Benefits from GPU | CPU only |
+
+**Auto mode** (default): Tries Ollama first, falls back to PyTesseract on failure.
+
+## Configuration Reference
+
+### CLI Flags
+
+| Flag | Type | Default | Description |
+|---|---|---|---|
+| `inputs` | positional | — | Input files or directories |
+| `--backend` | choice | `auto` | `auto`, `ollama`, or `pytesseract` |
+| `--lang` | string | `eng` | Languages separated by `+` |
+| `--model` | string | auto-detect | Ollama model name |
+| `--temp` | float | `0.1` | Ollama temperature |
+| `--max-retries` | int | `3` | Max retries per page |
+| `--max-dim` | int | `2048` | Max image dimension (pixels) |
+| `--timeout` | int | `120` | Timeout per page (seconds) |
+| `--workers` | int | `3` | Parallel worker count |
+| `--output-dir` | string | `ocr_output` | Output directory |
+| `--format` | choice | `json` | `json`, `txt`, or `md` |
+| `--indent` | flag | off | Pretty-print JSON |
+| `--save-debug-img` | flag | off | Save preprocessed images |
+| `--recursive` | flag | off | Recurse into directories |
+| `--quiet` | flag | off | Suppress verbose output |
+| `--ollama-url` | string | `http://localhost:11434` | Ollama API base URL |
+
+### OCRConfig Dataclass
+
+```python
+@dataclass
+class OCRConfig:
+    backend: str = "auto"           # "auto", "ollama", "pytesseract"
+    model: Optional[str] = None     # Ollama model (auto-detected if None)
+    languages: List[str] = ["eng"]  # Language codes
+    temperature: float = 0.1        # Ollama temperature
+    max_retries: int = 3            # Retries per page
+    max_dim: int = 2048             # Max image dimension
+    timeout: int = 120              # Per-page timeout (seconds)
+    workers: int = 3                # Parallel workers
+    ollama_base_url: str = "http://localhost:11434"
+    save_debug_img: bool = False
+```
+
+## Output Format Reference
+
+### JSON Output (`ocr_results.json`)
+
+```json
+{
+  "results": [
+    {
+      "input": "document.pdf",
+      "status": "success",
+      "text": "Extracted text content...",
+      "backend": "ollama/qwen2.5-vl",
+      "processing_time": 5.23,
+      "error": null,
+      "pages": [
+        {
+          "page": 1,
+          "status": "success",
+          "text": "Page 1 text...",
+          "backend": "ollama/qwen2.5-vl",
+          "confidence": 87.5,
+          "error": null,
+          "processing_time": 2.61
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total_files": 1,
+    "successful_files": 1,
+    "total_pages": 1,
+    "successful_pages": 1
+  }
+}
+```
+
+### Text Output (`ocr_output.txt`)
+
+```
+File: document.pdf
+---
+Extracted text content from page 1...
+
+Extracted text content from page 2...
+```
+
+## Testing
+
+```bash
+# Run all tests
+pytest tests/ -v
+
+# Run with coverage
+pytest tests/ -v --cov=ocr_engine
+
+# Quick smoke test
+ocr-pipeline --help
+```
+
+**Manual fallback test:**
+```bash
+# Stop Ollama, verify PyTesseract fallback works
+ollama stop
+ocr-pipeline document.pdf --backend auto
+# Should succeed using pytesseract backend
+```
+
+## Troubleshooting
+
+**`tesseract is not installed or it's not in your PATH`**
+- macOS: `brew install tesseract`
+- Ubuntu: `sudo apt-get install tesseract-ocr`
+- Windows: Install from [UB Mannheim](https://github.com/UB-Mannheim/tesseract/wiki), add to PATH
+
+**`Unable to get page count. Is poppler installed and in PATH?`**
+- macOS: `brew install poppler`
+- Ubuntu: `sudo apt-get install poppler-utils`
+- Windows: Install from [poppler releases](https://github.com/oschwartz10612/poppler-windows/releases), add `bin/` to PATH
+
+**`Ollama OCR timed out` or connection refused**
+- Ensure Ollama is running: `ollama serve`
+- Check the URL: `--ollama-url http://localhost:11434`
+- Pull a vision model: `ollama pull qwen2.5-vl`
+
+**Hindi/Marathi text not recognized**
+- Install tessdata: `sudo apt-get install tesseract-ocr-hin tesseract-ocr-mar`
+- macOS: `brew install tesseract-lang`
+- Use Ollama with `qwen2.5-vl` for better Devanagari accuracy
+
+## Contributing
+
+### Development Setup
+
+```bash
+git clone https://github.com/yashodhank/ocr-pipeline.git
+cd ocr-pipeline
+pip install -e ".[dev]"
+pytest tests/ -v
+```
+
+### Commit Convention
+
+This project uses [Conventional Commits](https://www.conventionalcommits.org/) for automated releases:
+
+| Prefix | Version Bump | Example |
+|---|---|---|
+| `feat:` | Minor (1.0.0 → 1.1.0) | `feat: add Japanese language support` |
+| `fix:` | Patch (1.0.0 → 1.0.1) | `fix: handle empty PDF pages` |
+| `feat!:` | Major (1.0.0 → 2.0.0) | `feat!: change output format` |
+| `docs:` | No release | `docs: update README` |
+| `chore:` | No release | `chore: update dependencies` |
+
+### Release Workflow
+
+```mermaid
+flowchart LR
+    Commit["Push to main"] --> SR["Semantic Release"]
+    SR -->|"feat: commit"| Minor["Bump Minor"]
+    SR -->|"fix: commit"| Patch["Bump Patch"]
+    Minor --> Tag["Create Git Tag"]
+    Patch --> Tag
+    Tag --> Build["Build wheel + sdist"]
+    Build --> PyPI["Publish to PyPI"]
+    PyPI --> GH["GitHub Release +<br/>Changelog"]
+```
+
+Releases are fully automated — push a conventional commit to `main` and semantic-release handles versioning, tagging, building, and PyPI publishing.
+
+## License
+
+MIT

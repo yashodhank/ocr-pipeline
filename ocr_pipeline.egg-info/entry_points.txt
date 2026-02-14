@@ -1,0 +1,2 @@
+[console_scripts]
+ocr-pipeline = ocr_cli:main
